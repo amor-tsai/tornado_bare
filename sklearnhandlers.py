@@ -109,12 +109,13 @@ class PredictOneFromDatasetId(BaseHandler):
             if tmp is not None:
                 self.clf[dsid] = pickle.loads(tmp['model'])
 
-        # if it's a new dsid and we can't find any module matched in the database
-        # then I'll use the first module in the self.clf as this new dsid's module. IOS app would crash if the http response format is not suitable, 
-        # so I just use the first one of previous module.
+        # if it's a totally new dsid and we can't find any module matched in the database
+        # then it returns unknown. Otherwise, it returns the prediction. 
+        # 
         if dsid not in self.clf.keys() and self.clf is not []:
-            self.clf[dsid] = self.clf[list(self.clf)[0]]
-
-        predLabel = self.clf[dsid].predict(fvals)
+            predLabel = "unknown"
+        else :
+            predLabel = self.clf[dsid].predict(fvals)
+        
         self.write_json({"prediction":str(predLabel)})
         
