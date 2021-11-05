@@ -44,7 +44,7 @@ class Application(tornado.web.Application):
         self.handlers_string = str(handlers)
 
         try:
-            self.client  = MongoClient(serverSelectionTimeoutMS=50) # local host, default port
+            self.client  = MongoClient('mongodb://127.0.0.1:8000/',serverSelectionTimeoutMS=50) # local host, default port
             print(self.client.server_info()) # force pymongo to look for possible running servers, error if none running
             # if we get here, at least one instance of pymongo is running
             self.db = self.client.sklearndatabase # database with labeledinstances, models
@@ -54,7 +54,7 @@ class Application(tornado.web.Application):
             print('Are you running a valid local-hosted instance of mongodb?')
             #raise inst
         
-        self.clf = [] # the classifier model (in-class assignment, you might need to change this line!)
+        self.clf = {} # the classifier model (in-class assignment, you might need to change this line!)
         # but depending on your implementation, you may not need to change it  ¯\_(ツ)_/¯
 
         settings = {'debug':True}

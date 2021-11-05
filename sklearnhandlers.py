@@ -15,6 +15,7 @@ import pickle
 from bson.binary import Binary
 import json
 import numpy as np
+import time
 
 class PrintHandlers(BaseHandler):
     def get(self):
@@ -72,12 +73,12 @@ class UpdateModelForDatasetId(BaseHandler):
             l.append(a['label'])
 
         # fit the model to the data
-        c1 = KNeighborsClassifier(n_neighbors=1);
+        c1 = KNeighborsClassifier(n_neighbors=1)
         acc = -1;
         if l:
             c1.fit(f,l) # training
             lstar = c1.predict(f)
-            self.clf = c1
+            self.clf[dsid] = c1
             acc = sum(lstar==l)/float(len(l))
             bytes = pickle.dumps(c1)
             self.db.models.update({"dsid":dsid},
@@ -101,9 +102,19 @@ class PredictOneFromDatasetId(BaseHandler):
 
         # load the model from the database (using pickle)
         # we are blocking tornado!! no!!
-        if(self.clf == []):
+        # if it can't find dsid in self.clf, then try to load the module from database and save it to the self.clf
+        if(dsid not in self.clf.keys()) :
             print('Loading Model From DB')
             tmp = self.db.models.find_one({"dsid":dsid})
-            self.clf = pickle.loads(tmp['model'])
-        predLabel = self.clf.predict(fvals);
+            if tmp is not None:
+                self.clf[dsid] = pickle.loads(tmp['model'])
+
+        # if it's a new dsid and we can't find any module matched in the database
+        # then I'll use the first module in the self.clf as this new dsid's module. IOS app would crash if the http response format is not suitable, 
+        # so I just use the first one of previous module.
+        if dsid not in self.clf.keys() and self.clf is not []:
+            self.clf[dsid] = self.clf[list(self.clf)[0]]
+
+        predLabel = self.clf[dsid].predict(fvals)
         self.write_json({"prediction":str(predLabel)})
+        
