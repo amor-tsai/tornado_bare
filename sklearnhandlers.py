@@ -95,7 +95,7 @@ class UpdateModelForDatasetId(BaseHandler):
 
         # fit the model to the data
         # here I'll use two RNN models, which are LSTM and GRU both with conceptNet embedding where I learned from Machine Learning in Python class.
-        # To save a ton of codes here, I load the model I have trained before(https://github.com/amor-tsai/MachineLearningNotebooks/blob/master/Lab7-ext.ipynb)
+        # To save a ton of codes here, I load the model I have trained from another jupyter-notebook(https://github.com/amor-tsai/MachineLearningNotebooks/blob/master/Lab7-ext.ipynb)
  
         if dsid == 1 :
             # use pre-trained LSTM model with embedding layer
@@ -156,8 +156,8 @@ class PredictOneFromDatasetId(BaseHandler):
         dsid  = data['dsid']
 
         # load the model from the file(load_model)
-        # we are blocking tornado!! no!!
-        # if it can't find dsid in self.clf, then try to load the module from database and save it to the self.clf
+        # To save a ton of codes here, I just use the model I trained from another jupyter-notebook. 
+        # https://github.com/amor-tsai/MachineLearningNotebooks/blob/master/Lab7-ext.ipynb
         if(dsid not in self.clf.keys()) :
             print('Loading Model From File')
             if dsid == 1 :
@@ -180,8 +180,5 @@ class PredictOneFromDatasetId(BaseHandler):
         # make prediction
         predScore = self.clf[dsid].predict(pading_sequence).flatten()
         predLabel = int(np.around(predScore)[0])
-        
-        print("predLabel")
-        print(predLabel)
 
         self.write_json({"prediction":str(predLabel)})
