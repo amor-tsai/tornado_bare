@@ -16,6 +16,25 @@ from bson.binary import Binary
 import json
 import numpy as np
 import time
+import tensorflow as tf
+from tensorflow import keras
+from keras.models import load_model
+from tensorflow.keras.layers import Dense, Activation, Input, Dropout
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Embedding
+from tensorflow.keras.layers import concatenate
+from tensorflow.keras.utils import plot_model
+from tensorflow.keras.optimizers import Adagrad,Adam
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Dense, Input, SimpleRNN, Conv1D, MaxPooling1D
+from tensorflow.keras.layers import LSTM, GRU, Bidirectional
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers.schedules import ExponentialDecay
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.regularizers import l2
+
 
 class PrintHandlers(BaseHandler):
     def get(self):
@@ -32,17 +51,19 @@ class UploadLabeledDatapointHandler(BaseHandler):
         data = json.loads(self.request.body.decode("utf-8"))
 
         vals = data['feature']
-        fvals = [float(val) for val in vals]
         label = data['label']
         sess  = data['dsid']
 
-        dbid = self.db.labeledinstances.insert(
-            {"feature":fvals,"label":label,"dsid":sess}
-            );
+        # if it's a non-empty string, it can write into db
+        if vals :
+            dbid = self.db.labeledinstances.insert(
+                {"feature":vals,"label":label,"dsid":sess}
+                );
+        
         self.write_json({"id":str(dbid),
-            "feature":[str(len(fvals))+" Points Received",
-                    "min of: " +str(min(fvals)),
-                    "max of: " +str(max(fvals))],
+            "feature":[str(len(vals))+" Points Received",
+                    "min of: " +str(min(vals)),
+                    "max of: " +str(max(vals))],
             "label":label})
 
 class RequestNewDatasetId(BaseHandler):
@@ -65,25 +86,61 @@ class UpdateModelForDatasetId(BaseHandler):
         # create feature vectors from database
         f=[];
         for a in self.db.labeledinstances.find({"dsid":dsid}): 
-            f.append([float(val) for val in a['feature']])
+            f.append(a['feature'])
 
         # create label vector from database
         l=[];
         for a in self.db.labeledinstances.find({"dsid":dsid}): 
-            l.append(a['label'])
+            l.append(int(a['label']))
 
         # fit the model to the data
-        c1 = KNeighborsClassifier(n_neighbors=1)
+        # here I'll use two RNN models, which are LSTM and GRU both with conceptNet embedding where I learned from Machine Learning in Python class.
+        # To save a ton of codes here, I load the model I have trained before(https://github.com/amor-tsai/MachineLearningNotebooks/blob/master/Lab7-ext.ipynb)
+ 
+        if dsid == 1 :
+            # use pre-trained LSTM model with embedding layer
+            if (dsid not in self.clf.keys()) :
+                self.clf[dsid] = load_model("lstm_conceptNet.h5")
+            
+        else :
+            # use pre-trained GRU model with embedding layer
+            if (dsid not in self.clf.keys()) :
+                self.clf[dsid] = load_model("gru_conceptNet.h5")
+            
+        
+        model = self.clf[dsid]
         acc = -1;
-        if l:
-            c1.fit(f,l) # training
-            lstar = c1.predict(f)
-            self.clf[dsid] = c1
+        if l and model:
+            # loading tokenizer
+            with open('tokenizer.pickle', 'rb') as handle:
+                tokenizer = pickle.load(handle)
+            
+            # vectorization
+            sequences = tokenizer.texts_to_sequences(f)
+
+            print("f values")
+            print(f)
+
+            print("sequences")
+            print(sequences)
+
+            # padding sequence
+            data_for_train = pad_sequences(sequences,maxlen = 35)
+
+            print("data_for_train")
+            print(data_for_train.shape)
+            
+            l = np.array(l)
+
+            model.fit(
+                data_for_train,
+                l,
+                epochs = 10,
+                verbose = 0,
+                batch_size = 10,
+            ) # training
+            lstar = np.around(model.predict(data_for_train).flatten())
             acc = sum(lstar==l)/float(len(l))
-            bytes = pickle.dumps(c1)
-            self.db.models.update({"dsid":dsid},
-                {  "$set": {"model":Binary(bytes)}  },
-                upsert=True)
 
         # send back the resubstitution accuracy
         # if training takes a while, we are blocking tornado!! No!!
@@ -96,26 +153,35 @@ class PredictOneFromDatasetId(BaseHandler):
         data = json.loads(self.request.body.decode("utf-8"))    
 
         vals = data['feature'];
-        fvals = [float(val) for val in vals];
-        fvals = np.array(fvals).reshape(1, -1)
         dsid  = data['dsid']
 
-        # load the model from the database (using pickle)
+        # load the model from the file(load_model)
         # we are blocking tornado!! no!!
         # if it can't find dsid in self.clf, then try to load the module from database and save it to the self.clf
         if(dsid not in self.clf.keys()) :
-            print('Loading Model From DB')
-            tmp = self.db.models.find_one({"dsid":dsid})
-            if tmp is not None:
-                self.clf[dsid] = pickle.loads(tmp['model'])
+            print('Loading Model From File')
+            if dsid == 1 :
+                # use pre-trained LSTM model with embedding layer
+                self.clf[dsid] = load_model("lstm_conceptNet.h5")
+            else :
+                # use pre-trained GRU model with embedding layer
+                self.clf[dsid] = load_model("gru_conceptNet.h5")
 
-        # if it's a totally new dsid and we can't find any module matched in the database
-        # then it returns unknown. Otherwise, it returns the prediction. 
-        # 
-        if dsid not in self.clf.keys() and self.clf is not []:
-            predLabel = "unknown"
-        else :
-            predLabel = self.clf[dsid].predict(fvals)
+        # loading tokenizer
+        with open('tokenizer.pickle', 'rb') as handle:
+            tokenizer = pickle.load(handle)
         
+        # vectorization
+        sequence = tokenizer.texts_to_sequences([vals])
+
+        # padding sequence
+        pading_sequence = pad_sequences(sequence,maxlen = 35)
+
+        # make prediction
+        predScore = self.clf[dsid].predict(pading_sequence).flatten()
+        predLabel = int(np.around(predScore)[0])
+        
+        print("predLabel")
+        print(predLabel)
+
         self.write_json({"prediction":str(predLabel)})
-        

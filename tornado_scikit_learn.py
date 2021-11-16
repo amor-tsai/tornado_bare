@@ -47,7 +47,7 @@ class Application(tornado.web.Application):
             self.client  = MongoClient('mongodb://127.0.0.1:8000/',serverSelectionTimeoutMS=50) # local host, default port
             print(self.client.server_info()) # force pymongo to look for possible running servers, error if none running
             # if we get here, at least one instance of pymongo is running
-            self.db = self.client.sklearndatabase # database with labeledinstances, models
+            self.db = self.client.rnndatabase # database with labeledinstances, models
             
         except ServerSelectionTimeoutError as inst:
             print('Could not initialize database connection, stopping execution')
