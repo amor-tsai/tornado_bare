@@ -120,5 +120,13 @@ class BaseHandler(tornado.web.RequestHandler):
         tmp = json_str(value);
         self.write(tmp)
 
+    # set authentication for server
+    # if there is a key called pass in the cookies and it's value is the very specific, then you can get through
+    def check_cookie(self):
+        passKey = self.get_cookie("pass")
+        if passKey == "h7hdg43scbmdTRY7hbv321szxcdOPd2mz1":
+            return True
+        else :
+            return False
 
 

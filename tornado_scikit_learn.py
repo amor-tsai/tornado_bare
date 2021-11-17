@@ -38,7 +38,7 @@ class Application(tornado.web.Application):
                     (r"/AddDataPoint[/]?",    skh.UploadLabeledDatapointHandler),
                     (r"/GetNewDatasetId[/]?", skh.RequestNewDatasetId),
                     (r"/UpdateModel[/]?",     skh.UpdateModelForDatasetId),     
-                    (r"/PredictOne[/]?",      skh.PredictOneFromDatasetId),               
+                    (r"/PredictOne[/]?",      skh.PredictOneFromDatasetId)              
                     ]
 
         self.handlers_string = str(handlers)
@@ -57,7 +57,9 @@ class Application(tornado.web.Application):
         self.clf = {} # the classifier model (in-class assignment, you might need to change this line!)
         # but depending on your implementation, you may not need to change it  ¯\_(ツ)_/¯
 
-        settings = {'debug':True}
+        settings = {
+            'debug':True
+        }
         tornado.web.Application.__init__(self, handlers, **settings)
 
     def __exit__(self):

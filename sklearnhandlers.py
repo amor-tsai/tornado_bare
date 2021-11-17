@@ -46,6 +46,14 @@ class PrintHandlers(BaseHandler):
 
 class UploadLabeledDatapointHandler(BaseHandler):
     def post(self):
+
+        # Authentication
+        # method is defined in basehandler
+        # it's very simple authentication method. I get a key called "pass" from the cookies, and make sure that it matches the very specific key defined. 
+        if False == self.check_cookie():
+            self.write_json({"error": "authentication failed"})
+            return
+
         '''Save data point and class label to database
         '''
         data = json.loads(self.request.body.decode("utf-8"))
@@ -70,6 +78,11 @@ class RequestNewDatasetId(BaseHandler):
     def get(self):
         '''Get a new dataset ID for building a new dataset
         '''
+        # Authentication 
+        if False == self.check_cookie():
+            self.write_json({"error": "authentication failed"})
+            return
+
         a = self.db.labeledinstances.find_one(sort=[("dsid", -1)])
         if a == None:
             newSessionId = 1
@@ -78,11 +91,19 @@ class RequestNewDatasetId(BaseHandler):
         self.write_json({"dsid":newSessionId})
 
 class UpdateModelForDatasetId(BaseHandler):
+    
     def get(self):
         '''Train a new model (or update) for given dataset ID
         '''
-        dsid = self.get_int_arg("dsid",default=0)
+        # Authentication 
+        if False == self.check_cookie():
+            self.write_json({"error": "authentication failed"})
+            return
 
+        # modle id
+        dsid = self.get_int_arg("dsid",default=0)
+        # it determines how many epochs the model shoudl run
+        epochs = self.get_int_arg("epochs",default=1)
         # create feature vectors from database
         f=[];
         for a in self.db.labeledinstances.find({"dsid":dsid}): 
@@ -118,24 +139,15 @@ class UpdateModelForDatasetId(BaseHandler):
             # vectorization
             sequences = tokenizer.texts_to_sequences(f)
 
-            print("f values")
-            print(f)
-
-            print("sequences")
-            print(sequences)
-
             # padding sequence
             data_for_train = pad_sequences(sequences,maxlen = 35)
-
-            print("data_for_train")
-            print(data_for_train.shape)
             
             l = np.array(l)
 
             model.fit(
                 data_for_train,
                 l,
-                epochs = 10,
+                epochs = epochs,
                 verbose = 0,
                 batch_size = 10,
             ) # training
@@ -148,6 +160,12 @@ class UpdateModelForDatasetId(BaseHandler):
 
 class PredictOneFromDatasetId(BaseHandler):
     def post(self):
+
+        # Authentication 
+        if False == self.check_cookie():
+            self.write_json({"error": "authentication failed"})
+            return
+
         '''Predict the class of a sent feature vector
         '''
         data = json.loads(self.request.body.decode("utf-8"))    
