@@ -34,7 +34,7 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.regularizers import l2
-
+import transformers
 
 class PrintHandlers(BaseHandler):
     def get(self):
@@ -200,3 +200,59 @@ class PredictOneFromDatasetId(BaseHandler):
         predLabel = int(np.around(predScore)[0])
 
         self.write_json({"prediction":str(predLabel)})
+
+class PredictNextAnswer(BaseHandler):
+    def post(self):
+        # Authentication 
+        if False == self.check_cookie():
+            self.write_json({"error": "authentication failed"})
+            return
+        
+        data = json.loads(self.request.body.decode("utf-8")) 
+        text = data['newInput']
+        # it's conversational id. It's used for identifying if it's the same conversation.
+        past_inputs = [] # user past input
+        past_responses = [] # chatbot past output
+        
+        # load the pre-trained model
+        if self.clf is None:
+            self.clf = nlp = transformers.pipeline("conversational", model="facebook/blenderbot-400M-distill")
+
+
+        if "chatId" not in data.keys() or not data['chatId']:
+            # it's totally fresh conversation
+            conversation = transformers.Conversation(
+                text
+            )
+        else :
+            # it's a conversation contained the context
+            chatId = data['chatId']
+            # search in db to find the context so the chatbot knows what we previously talked about
+            for a in self.db.labeledinstances.find({"chatId":chatId}):
+                past_inputs.append(a['input'])
+                past_responses.append(a['response'])
+            
+            # we have a context, so we have to input the past user input and past generated responses so chatbot knows the context
+            if past_inputs:
+                conversation = transformers.Conversation(
+                    text,
+                    conversation_id = chatId,
+                    past_user_inputs = past_inputs,
+                    generated_responses = past_responses
+                )
+        
+        result = self.clf(conversation)
+        response = result.generated_responses[-1]
+        chatId = response.uuid # conversation id
+
+        # after prediction, we have to insert this dialogue into the database in order to store the context
+        self.db.labeledinstances.insert(
+                {"input":text,"response":response,"chatId":chatId}
+                );
+
+
+        self.write_json({"prediction":str(response),"chatId":str(chatId)})
+
+
+
+        

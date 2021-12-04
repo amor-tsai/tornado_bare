@@ -38,7 +38,8 @@ class Application(tornado.web.Application):
                     (r"/AddDataPoint[/]?",    skh.UploadLabeledDatapointHandler),
                     (r"/GetNewDatasetId[/]?", skh.RequestNewDatasetId),
                     (r"/UpdateModel[/]?",     skh.UpdateModelForDatasetId),     
-                    (r"/PredictOne[/]?",      skh.PredictOneFromDatasetId)              
+                    (r"/PredictOne[/]?",      skh.PredictOneFromDatasetId),
+                    (r"/GetNextSentence[/]?", skh.PredictNextAnswer)              
                     ]
 
         self.handlers_string = str(handlers)
@@ -47,14 +48,14 @@ class Application(tornado.web.Application):
             self.client  = MongoClient('mongodb://127.0.0.1:8000/',serverSelectionTimeoutMS=50) # local host, default port
             print(self.client.server_info()) # force pymongo to look for possible running servers, error if none running
             # if we get here, at least one instance of pymongo is running
-            self.db = self.client.rnndatabase # database with labeledinstances, models
+            self.db = self.client.chatbot # database with labeledinstances, models
             
         except ServerSelectionTimeoutError as inst:
             print('Could not initialize database connection, stopping execution')
             print('Are you running a valid local-hosted instance of mongodb?')
             #raise inst
         
-        self.clf = {} # the classifier model (in-class assignment, you might need to change this line!)
+        self.clf = [] # the classifier model (in-class assignment, you might need to change this line!)
         # but depending on your implementation, you may not need to change it  ¯\_(ツ)_/¯
 
         settings = {
