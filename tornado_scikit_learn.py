@@ -39,7 +39,7 @@ class Application(tornado.web.Application):
                     (r"/GetNewDatasetId[/]?", skh.RequestNewDatasetId),
                     (r"/UpdateModel[/]?",     skh.UpdateModelForDatasetId),     
                     (r"/PredictOne[/]?",      skh.PredictOneFromDatasetId),
-                    (r"/GetNextSentence[/]?", skh.PredictNextAnswer)              
+                    (r"/GetNewAnswer[/]?", skh.PredictNextAnswer)              
                     ]
 
         self.handlers_string = str(handlers)
