@@ -216,15 +216,12 @@ class PredictNextAnswer(BaseHandler):
         
         # load the pre-trained model
         if self.clf is None:
-            self.clf = nlp = transformers.pipeline("conversational", model="facebook/blenderbot-400M-distill")
+            self.clf = transformers.pipeline("conversational", model="facebook/blenderbot-400M-distill")
 
 
-        if "chatId" not in data.keys() or not data['chatId']:
-            # it's totally fresh conversation
-            conversation = transformers.Conversation(
-                text
-            )
-        else :
+        conversation = transformers.Conversation(text)
+                
+        if "chatId" in data.keys() and data['chatId'] :
             # it's a conversation contained the context
             chatId = data['chatId']
             # search in db to find the context so the chatbot knows what we previously talked about
@@ -243,7 +240,7 @@ class PredictNextAnswer(BaseHandler):
         
         result = self.clf(conversation)
         response = result.generated_responses[-1]
-        chatId = response.uuid # conversation id
+        chatId = result.uuid # conversation id
 
         # after prediction, we have to insert this dialogue into the database in order to store the context
         self.db.labeledinstances.insert(
@@ -251,7 +248,7 @@ class PredictNextAnswer(BaseHandler):
                 );
 
 
-        self.write_json({"prediction":str(response),"chatId":str(chatId)})
+        self.write_json({"response":str(response),"chatId":str(chatId)})
 
 
 
