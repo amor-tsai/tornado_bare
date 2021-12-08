@@ -220,7 +220,7 @@ class PredictNextAnswer(BaseHandler):
 
 
         conversation = transformers.Conversation(text)
-                
+
         if "chatId" in data.keys() and data['chatId'] :
             # it's a conversation contained the context
             chatId = data['chatId']
@@ -240,7 +240,7 @@ class PredictNextAnswer(BaseHandler):
         
         result = self.clf(conversation)
         response = result.generated_responses[-1]
-        chatId = result.uuid # conversation id
+        chatId = str(result.uuid) # conversation id
 
         # after prediction, we have to insert this dialogue into the database in order to store the context
         self.db.labeledinstances.insert(
